@@ -1,0 +1,180 @@
+SPECIFIC CODE REVIEW INSTRUCTIONS FOR LLM
+==========================================
+
+This document contains specific practices and rules for reviewing Pull Requests.
+Focus on these concrete, actionable items rather than generic advice.
+
+ARCHITECTURE & DESIGN PATTERNS
+-------------------------------
+1. Flag use of Service Locator pattern - prefer Dependency Injection
+2. Identify God Objects (classes with >7 responsibilities or >500 lines)
+3. Reject circular dependencies between modules/packages
+4. Enforce single direction of dependency flow (e.g., UI → Service → Data)
+5. Flag direct database access in presentation layer
+6. Identify missing abstraction layers when external APIs are called directly from business logic
+7. Require interface segregation - no interfaces with >10 methods
+8. Flag static mutable state - prefer dependency injection or immutable configuration
+9. Identify missing factory pattern when object creation has complex logic (>3 parameters)
+10. Reject inheritance depth >3 levels - prefer composition
+
+ERROR HANDLING & RESILIENCE
+----------------------------
+1. Flag catch blocks that swallow exceptions without logging or re-throwing
+2. Require specific exception types - reject catching generic Exception/Error
+3. Flag missing timeout configurations for external calls (HTTP, DB, cache)
+4. Require retry logic with exponential backoff for transient failures
+5. Flag missing circuit breaker pattern for external service dependencies
+6. Identify async operations without proper cancellation token handling
+7. Reject error messages that expose stack traces or internal paths to end users
+8. Flag missing validation before expensive operations (database queries, API calls)
+9. Require idempotency keys for state-changing operations that could be retried
+10. Flag resource acquisition without try-finally or using statements
+
+PERFORMANCE & SCALABILITY
+--------------------------
+1. Flag N+1 query patterns - require eager loading or batch fetching
+2. Identify missing pagination for list endpoints (limit max results to <1000)
+3. Flag database queries inside loops - require batch operations
+4. Reject loading entire collections when only count/exists is needed
+5. Flag missing indexes on foreign keys and frequently filtered columns
+6. Identify string concatenation in loops - require StringBuilder or string.Join
+7. Flag synchronous I/O in async methods (File.ReadAllText instead of ReadAllTextAsync)
+8. Require caching for expensive operations called multiple times (TTL >5min)
+9. Flag missing database connection pooling configuration
+10. Identify missing LIMIT/TOP clause in SQL queries
+11. Flag eager loading of large binary data (images, files) when metadata is sufficient
+12. Require streaming for files >10MB instead of loading into memory
+
+SECURITY PRACTICES
+-------------------
+1. Flag SQL queries built with string concatenation - require parameterized queries
+2. Identify missing input validation on boundary methods (API endpoints, event handlers)
+3. Flag sensitive data (passwords, tokens, keys) in logs or error messages
+4. Require authentication checks before authorization checks
+5. Flag missing rate limiting on public endpoints
+6. Identify timing attacks in comparison operations for secrets - require constant-time comparison
+7. Flag missing CSRF protection for state-changing operations
+8. Require explicit allow-list for file upload types (reject deny-list approach)
+9. Flag usage of deprecated cryptographic algorithms (MD5, SHA1, DES, RC4)
+10. Identify missing security headers (CSP, X-Frame-Options, HSTS)
+11. Flag credentials or secrets in code - require configuration/environment variables
+12. Require least privilege principle - no admin/root by default
+
+DATA HANDLING
+-------------
+1. Flag date/time operations without timezone specification - require UTC
+2. Identify floating point arithmetic for currency - require decimal type
+3. Flag missing null checks before dereferencing in languages without null safety
+4. Require defensive copying for mutable collections returned from methods
+5. Flag missing data validation before serialization
+6. Identify case-sensitive string comparisons that should be case-insensitive
+7. Flag missing encoding specification for byte/string conversions (require UTF-8 explicit)
+8. Require truncation or validation for string fields before database insertion
+9. Flag mixing of correlation/causation in data analysis code
+10. Identify potential data races in concurrent access to shared mutable state
+
+TESTING & TESTABILITY
+----------------------
+1. Flag public methods that cannot be unit tested due to tight coupling
+2. Require test names that describe behavior, not implementation (When_X_Then_Y format)
+3. Flag tests with multiple assertions on unrelated concerns - prefer focused tests
+4. Identify missing tests for error paths and edge cases
+5. Flag test data that depends on current date/time - require fixed test dates
+6. Require mocking external dependencies (database, APIs, file system)
+7. Flag tests that modify global state without cleanup
+8. Identify missing assertions in test methods
+9. Require deterministic test data - no random values without seeded generators
+10. Flag integration tests marked as unit tests (>100ms execution time)
+
+API DESIGN
+----------
+1. Flag breaking changes to public APIs without versioning
+2. Require consistent naming (createUser vs addUser in same API)
+3. Flag exposing internal IDs or implementation details in API responses
+4. Require HTTP status codes that match operation semantics (201 for creation, 204 for deletion)
+5. Flag missing API versioning strategy (URL, header, or media type)
+6. Identify missing resource linking in REST APIs (HATEOAS)
+7. Flag inconsistent error response formats across endpoints
+8. Require pagination metadata (total count, has_next, cursor) in list responses
+9. Flag mixing of snake_case and camelCase in same API
+10. Identify overfetching - endpoints returning more data than typical use case needs
+
+CODE QUALITY SPECIFICS
+-----------------------
+1. Flag methods with >4 parameters - require parameter objects
+2. Identify cyclomatic complexity >10 - require refactoring
+3. Flag boolean parameters that control method behavior - prefer separate methods
+4. Require meaningful variable names (no single letters except loop counters)
+5. Flag commented-out code - require removal or issue tracking
+6. Identify duplicate code blocks >6 lines - require extraction
+7. Flag magic numbers without named constants (except 0, 1, -1)
+8. Require explicit visibility modifiers (public, private, protected)
+9. Flag mutable default parameters in function signatures
+10. Identify TODO/FIXME comments without issue tracker links
+11. Flag inconsistent indentation or mixing tabs and spaces
+12. Require documentation for public APIs with non-obvious behavior
+
+CONCURRENCY & ASYNC
+-------------------
+1. Flag async void methods (except event handlers)
+2. Identify .Result or .Wait() on async operations - causes deadlocks
+3. Flag missing ConfigureAwait(false) in library code
+4. Require lock objects to be private readonly reference types
+5. Flag async operations in constructors
+6. Identify race conditions in check-then-act patterns
+7. Flag missing volatile keyword for fields accessed across threads
+8. Require thread-safe collections for concurrent access
+9. Flag blocking calls in async methods (Thread.Sleep instead of Task.Delay)
+10. Identify missing cancellation token propagation in async chains
+
+DATABASE & ORM
+--------------
+1. Flag missing transactions for multi-statement operations
+2. Identify inappropriate transaction isolation levels (default serializable is overkill)
+3. Flag using SELECT * instead of explicit column lists
+4. Require using appropriate batch size for bulk operations (<1000 records per batch)
+5. Flag missing database migration scripts for schema changes
+6. Identify eager loading all navigation properties when not needed
+7. Flag query filters applied in memory instead of database (ToList() before Where())
+8. Require explicit cascade delete configuration instead of relying on defaults
+9. Flag missing optimistic concurrency tokens for entities with updates
+10. Identify missing soft delete implementation for audit-required entities
+
+LOGGING & OBSERVABILITY
+------------------------
+1. Flag logging in tight loops - require aggregation or sampling
+2. Require structured logging with key-value pairs instead of string interpolation
+3. Flag inconsistent log levels (info for errors, debug for warnings)
+4. Identify missing correlation IDs for distributed tracing
+5. Flag logging sensitive data (PII, passwords, tokens)
+6. Require appropriate log levels based on actionability (error = page ops team)
+7. Flag missing performance metrics for critical operations (>500ms operations)
+8. Identify logs without context (which user, which request, which entity)
+9. Require using appropriate sinks (errors to alerting, metrics to monitoring)
+10. Flag excessive logging that impacts performance (>1000 log entries per request)
+
+RESOURCE MANAGEMENT
+-------------------
+1. Flag missing disposal of IDisposable objects
+2. Identify database connections held open longer than necessary
+3. Flag missing connection pool limits - require explicit configuration
+4. Require proper cleanup in finally blocks or using statements
+5. Flag file handles that aren't closed on error paths
+6. Identify memory leaks from event handler registrations without unsubscribe
+7. Flag large object allocations without considering memory pressure
+8. Require streaming for large file operations instead of loading into memory
+9. Flag missing HTTP client reuse (new HttpClient per request)
+10. Identify unbounded caches without eviction policy
+
+CONFIGURATION & DEPLOYMENT
+---------------------------
+1. Flag hardcoded environment-specific values - require configuration
+2. Identify missing feature flags for risky changes
+3. Flag configuration that requires application restart - prefer hot reload
+4. Require validation of configuration at startup
+5. Flag missing health check endpoints for services
+6. Identify missing graceful shutdown handling
+7. Flag deployment scripts without rollback capability
+8. Require separate configuration for each environment (dev, staging, prod)
+9. Flag missing connection string encryption
+10. Identify configuration drift between environments
